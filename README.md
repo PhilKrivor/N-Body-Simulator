@@ -16,3 +16,8 @@ It appears that the dictionary method is actually slightly faster, however, obvi
 - Numpy
 - Math, Random, Time
 
+# Work In Progress
+
+I am working on implementing two kinds of pseudo-collision systems. One where two objects stick (have masses combine) and fly off, and one where the two masses annihilate each other (ie animation would stop showing two masses that collided). 
+
+Personally, I think the sticking collision is much more interesting. 
