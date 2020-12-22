@@ -11,51 +11,104 @@ np.set_printoptions(precision=5, suppress=True)
 
 start = time.time()
 
-alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'.upper() #just to create labels
+random.seed(1)
 
-numberOfMasses = 5
+random_test = False #boolean for testing random planets on a smaller scale vs. realistic simulations
 
-dt = 0.01 #smaller values increase precision but make animation slower
+if random_test:
 
-totalSteps = 2000 #run for however many steps
+    alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'.upper() #just to create labels
 
+    numberOfMasses = 50
 
-mass = []
-while(len(mass) < numberOfMasses):
-    mass.append(random.randint(1,30))
+    dt = 0.1 #smaller values increase precision but make animation slower
 
-velocities = []
-for i in range(numberOfMasses):
-     velocities.append([random.randint(-5,5) for i in range(3)])
+    totalSteps = 2000 #run for however many steps
 
 
+    mass = []
+    while(len(mass) < numberOfMasses):
+        mass.append(random.randint(1,30))
 
-positions = []
-while(len(positions) < numberOfMasses):
-    pos = [random.randint(-10,10) for i in range(3)]
-    if pos not in positions:
-        positions.append(pos)
+    velocities = []
+    for i in range(numberOfMasses):
+         velocities.append([random.randint(-5,5) for i in range(3)])
+
+
+
+    positions = []
+    while(len(positions) < numberOfMasses):
+        pos = [random.randint(-10,10) for i in range(3)]
+        if pos not in positions:
+            positions.append(pos)
+else:
+
+    print('Starting realistic simulation...')
+
+    dt = 1
+    totalSteps = 2000
+    numberOfMasses = 3
+
+    alphabet = ['Earth', 'Sun', 'Moon']
+
+    massFactor = 1e20 #use 1e20 kg = 1 MU
+    distanceFactor = 1e5 #use 10,000m = 1 DU
+    timeFactor = 1000000 #use 10,000s = 1 TU
+
+    mass_earth = 6e24 / massFactor
+    mass_sun = 1.989e30 / massFactor
+    mass_moon = 7.34767e22 / massFactor
+
+    distance_earth_to_moon = 384400*1000 / distanceFactor
+    distance_earth_to_sun = 147.1 * 10e6 * 1000 / distanceFactor
+
+    #velocity_earth = 2.978589e4 * timeFactor / distanceFactor
+    velocity_earth = 5e3 * timeFactor / distanceFactor
+    velocity_moon = 5.3e3 * timeFactor / distanceFactor
+
+    mass = [mass_earth, mass_sun, mass_moon]
+    velocities = [[velocity_earth, 0, 0], [0,0,0], [velocity_moon, 0, 0]]
+    positions = [[0, distance_earth_to_sun, 0], [0,0,0], [0, distance_earth_to_sun + distance_earth_to_moon, 0]]
+    
 
 
 velocities = np.array(velocities) #convert into a m x 3 array for each mass
 positions = np.array(positions) #convert into m x 3 array of positions for each mass
 accelerations = np.array([np.array([0.0,0.0,0.0]) for j in range(numberOfMasses)]) #create empty array of accelerations
+mass = np.array(mass)
+mass = np.reshape(mass, (1, mass.shape[0])).T
+#velocities = np.reshape(velocities, (1, velocities.shape[0]))
+#positions = np.reshape(positions, (1, positions.shape[0]))
 
 def calculation(m, p, v, a, dt): #pass masses, positions and velocities arrays
-    
-    G = 20 #I used a custom G constant just so I can use smaller masses and smaller distance scales to make Matplotlib not freak out
+
+    if random_test:
+        G = 20 #I used a custom G constant just so I can use smaller masses and smaller distance scales to make Matplotlib not freak out
+    else:
+        G = 6.67384e-11 * (((1/distanceFactor)**3)/(((1/massFactor)) * (1/timeFactor) ** 2))
     
     for i in range(numberOfMasses):
-        netaccel = np.array([0.0,0.0,0.0]) #create empty array to add
-        for j in range(numberOfMasses): # P[i] will change row
-            
-            if j != i:
-                
-                vec = p[j] - p[i] #find vector between masses
-                distance = (math.sqrt(vec.dot(vec)))**3 #find magnitude of distance to the power of 3
-                vector = ((G * mass[j]) / distance) * vec #find 1 x 3 acceleration vector
-                netaccel += vector #modify net acceleration vector
-                
+
+        
+        other_masses = np.vstack((m[0:i, :],m[i+1:, :]))
+        others = np.vstack((p[0:i, :],p[i+1:, :]))
+        target = p[i, :]
+
+        #print(m)
+        #print(other_masses)
+        
+        vec_between = others - target
+
+        distance = np.diagonal(np.dot(vec_between, vec_between.T))
+
+        r_norm = 1 / (distance**(3/2))
+
+        term = np.multiply(other_masses.T, r_norm.T).T * G
+
+        acceleration = np.multiply(vec_between.T, term.T).T
+
+        netaccel = np.sum(acceleration, axis=0)
+        
         a[i] = netaccel #set acceleration of mass at index i to the net acceleration
 
     p = v * dt + 0.5 * a * dt ** 2 + p #calculate new positions
@@ -78,7 +131,11 @@ for i in range(totalSteps):
     positions, velocities, accelerations = calculation(mass, positions, velocities, accelerations, dt)
     
     locations.append(positions) #Yes I can use np.concatenate(), but I didn't realize I needed a tuple as the first argument for a long time, so I did a workaround :)
-       
+
+locs = np.array(locations) #Convert to numpy array
+
+print(f'Time taken: {time.time() - start}')
+ 
 print('Creating Figure')
 
 hexa = '0123456789ABCDEF' 
@@ -111,6 +168,8 @@ for i in range(len(mass)): #create a dot "line" to basically act as a visual aid
     a, = ax.plot([], [], [], marker=".", color = colours[i])
     plines.append(a)
 
+plines = np.array(plines)
+
 print('{} markers created'.format(len(plines)))
 
 print('Creating legend')
@@ -131,6 +190,11 @@ print('Created {} lines with data, and {} markers with data'.format(len(dataline
 xhigh = 20 #set reasonable initial highest axis values
 yhigh = 20
 zhigh = 20
+
+
+
+def update2(num):
+    pass
 
 def update(num): #datalines is dictionary where key:value is line:data
     
@@ -200,7 +264,7 @@ def update(num): #datalines is dictionary where key:value is line:data
 
 def animated():
     
-    ani = anim.FuncAnimation(fig, update, totalSteps, interval = 1)
+    ani = anim.FuncAnimation(fig, update, totalSteps, interval = 0.1)
     #ani.save('orbits.mp4', fps=60)
     end = time.time()
     print('Simulation took {} seconds to complete'.format(end-start))
@@ -209,10 +273,3 @@ def animated():
     
 if __name__ == '__main__':
     animated()
-
-
-
-
-
-
-    
