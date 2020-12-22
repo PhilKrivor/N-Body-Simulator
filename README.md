@@ -7,7 +7,7 @@ User can create masses with an initial position and velocity, and then the net a
 
 There are two versions: One involving four matrices (Numpy arrays): Position, Velocity, Acceleration and Mass matrices; and one involving a dictionary of the form, {mass:[Position, Velocity]}. 
 
-~~It appears that the dictionary method is actually slightly faster, however, obviously doesn't allow for two of the same masses to be simulated. ~~
+<strike>It appears that the dictionary method is actually slightly faster, however, obviously doesn't allow for two of the same masses to be simulated. </strike>
 
 As of December 2020, the dictionary method is obsolete, and has been replaced by the newer vector version. There may be some performance to be gained in the vector version, however.
 
