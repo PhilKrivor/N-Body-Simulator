@@ -11,17 +11,34 @@ np.set_printoptions(precision=5, suppress=True)
 
 start = time.time()
 
-random.seed(1)
+random_test = True #boolean for testing random planets on a smaller scale vs. realistic simulations
 
-random_test = False #boolean for testing random planets on a smaller scale vs. realistic simulations
+choice = 3
 
-if random_test:
+# sqrt(300 * 5 / 8)
 
-    alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'.upper() #just to create labels
-
-    numberOfMasses = 50
+if choice == 1:
+    numberOfMasses = 2
+    alphabet = [i for i in range(numberOfMasses)]
 
     dt = 0.1 #smaller values increase precision but make animation slower
+
+    totalSteps = 2000 #run for however many steps
+
+    mass = [300, 0.1]
+    positions = [[0,0,0],[0,10,0]]
+    velocities = [[0,0,0],[(300 * 5 / 10)**0.5,0,0]]
+
+
+elif choice == 3:
+
+    #alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'.upper() #just to create labels
+    
+
+    numberOfMasses = 5
+    alphabet = [i for i in range(numberOfMasses)]
+
+    dt = 1 #smaller values increase precision but make animation slower
 
     totalSteps = 2000 #run for however many steps
 
@@ -30,22 +47,26 @@ if random_test:
     while(len(mass) < numberOfMasses):
         mass.append(random.randint(1,30))
 
+    #velocities = [[0,0,0],[(1500/8)**0.5,0,0]]
+    #velocities = [[0,0,0], [‭0,0,0]]
+    #velocities = [[0,0,0], [‭]]
     velocities = []
     for i in range(numberOfMasses):
          velocities.append([random.randint(-5,5) for i in range(3)])
 
 
 
+    #positions = [[0,0,0], [0, 8, 0]]
     positions = []
     while(len(positions) < numberOfMasses):
         pos = [random.randint(-10,10) for i in range(3)]
         if pos not in positions:
             positions.append(pos)
-else:
+elif choice == 2:
 
     print('Starting realistic simulation...')
 
-    dt = 1
+    dt = 10
     totalSteps = 2000
     numberOfMasses = 3
 
@@ -53,18 +74,21 @@ else:
 
     massFactor = 1e20 #use 1e20 kg = 1 MU
     distanceFactor = 1e5 #use 10,000m = 1 DU
-    timeFactor = 1000000 #use 10,000s = 1 TU
+    timeFactor = 100000 #use 10,000s = 1 TU
+    G = 6.67384e-11 * (((1/distanceFactor)**3)/(((1/massFactor)) * (1/timeFactor) ** 2))
 
     mass_earth = 6e24 / massFactor
     mass_sun = 1.989e30 / massFactor
     mass_moon = 7.34767e22 / massFactor
 
-    distance_earth_to_moon = 384400*1000 / distanceFactor
+    distance_earth_to_moon = 324400*1000 / distanceFactor
     distance_earth_to_sun = 147.1 * 10e6 * 1000 / distanceFactor
 
     #velocity_earth = 2.978589e4 * timeFactor / distanceFactor
-    velocity_earth = 5e3 * timeFactor / distanceFactor
-    velocity_moon = 5.3e3 * timeFactor / distanceFactor
+    #velocity_earth = 5e3 * timeFactor / distanceFactor
+    #velocity_moon = 5.1e3 * timeFactor / distanceFactor
+    velocity_earth = (mass_sun * G / distance_earth_to_sun)**0.5
+    velocity_moon = (mass_earth * G / distance_earth_to_moon)**0.5 + velocity_earth
 
     mass = [mass_earth, mass_sun, mass_moon]
     velocities = [[velocity_earth, 0, 0], [0,0,0], [velocity_moon, 0, 0]]
@@ -83,7 +107,7 @@ mass = np.reshape(mass, (1, mass.shape[0])).T
 def calculation(m, p, v, a, dt): #pass masses, positions and velocities arrays
 
     if random_test:
-        G = 20 #I used a custom G constant just so I can use smaller masses and smaller distance scales to make Matplotlib not freak out
+        G = 5 #I used a custom G constant just so I can use smaller masses and smaller distance scales to make Matplotlib not freak out
     else:
         G = 6.67384e-11 * (((1/distanceFactor)**3)/(((1/massFactor)) * (1/timeFactor) ** 2))
     
@@ -91,29 +115,41 @@ def calculation(m, p, v, a, dt): #pass masses, positions and velocities arrays
 
         
         other_masses = np.vstack((m[0:i, :],m[i+1:, :]))
+    
+        
         others = np.vstack((p[0:i, :],p[i+1:, :]))
+    
         target = p[i, :]
-
-        #print(m)
-        #print(other_masses)
         
         vec_between = others - target
 
+       
+
         distance = np.diagonal(np.dot(vec_between, vec_between.T))
 
-        r_norm = 1 / (distance**(3/2))
+       
 
-        term = np.multiply(other_masses.T, r_norm.T).T * G
+        r_norm = G / ((distance)**(3/2))
+
+       
+
+        term = np.multiply(other_masses.T, r_norm.T).T 
 
         acceleration = np.multiply(vec_between.T, term.T).T
 
+        acceleration = (1/2) * (acceleration + np.multiply(vec_between.T, term.T).T)
+
         netaccel = np.sum(acceleration, axis=0)
+
         
         a[i] = netaccel #set acceleration of mass at index i to the net acceleration
 
+
+    v = a * dt/2 + v #calculate new velocities
+
     p = v * dt + 0.5 * a * dt ** 2 + p #calculate new positions
     
-    v = a * dt + v #calculate new velocities
+    v = a * dt/2 + v #calculate new velocities
 
     return p, v, a
 
@@ -264,7 +300,7 @@ def update(num): #datalines is dictionary where key:value is line:data
 
 def animated():
     
-    ani = anim.FuncAnimation(fig, update, totalSteps, interval = 0.1)
+    ani = anim.FuncAnimation(fig, update, totalSteps, interval = 1)
     #ani.save('orbits.mp4', fps=60)
     end = time.time()
     print('Simulation took {} seconds to complete'.format(end-start))
@@ -273,3 +309,10 @@ def animated():
     
 if __name__ == '__main__':
     animated()
+
+
+
+
+
+
+    
